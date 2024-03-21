@@ -1,13 +1,20 @@
-import { View, Text, Image, StyleSheet, Pressable } from "react-native";
+import {
+  View,
+  Text,
+  Image,
+  StyleSheet,
+  Pressable,
+  ActivityIndicator,
+} from "react-native";
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocalSearchParams, useNavigation } from "expo-router";
-import { pokeDetailApi, Pokemon } from "@/api/pokeapi";
+import { useQuery } from "@tanstack/react-query";
+import { pokeDetailApi } from "@/api/pokeapi";
 import AsyncStorage from "@react-native-async-storage/async-storage";
 import { AntDesign } from "@expo/vector-icons";
 
-const TestPage = () => {
+const PokeDetailPage = () => {
   const { id = "" } = useLocalSearchParams<{ id: string }>();
-  const [pokemon, setPokemon] = useState<Pokemon>();
   const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const navigation = useNavigation();
 
@@ -16,6 +23,20 @@ const TestPage = () => {
     setIsFavorite((cur) => !cur);
   }, [isFavorite, id, AsyncStorage]);
 
+  const { data, isLoading } = useQuery({
+    queryKey: ["pokemon", id],
+    queryFn: () => pokeDetailApi(id),
+    refetchOnMount: false,
+  });
+  useEffect(() => {
+    if (data) {
+      navigation.setOptions({
+        title: data.name[0].toUpperCase() + data.name.slice(1),
+      });
+    }
+  }, [data]);
+  /** Old way of fetching data
+  const [pokemon, setPokemon] = useState<Pokemon>();
   useEffect(() => {
     const load = async () => {
       const data = await pokeDetailApi(id);
@@ -26,7 +47,7 @@ const TestPage = () => {
     };
     load();
   }, [id]);
-
+*/
   useEffect(() => {
     const load = async () => {
       const storedFavorite = await AsyncStorage.getItem(`favoriate-${id}`);
@@ -50,19 +71,20 @@ const TestPage = () => {
   }, [isFavorite, toggleFavorite]);
   return (
     <View>
-      {pokemon && (
+      {isLoading && <ActivityIndicator style={{ marginTop: 30 }} />}
+      {data && (
         <>
           <View style={[styles.card, { alignItems: "center" }]}>
             <Image
-              source={{ uri: pokemon.sprites.front_default }}
+              source={{ uri: data.sprites.front_default }}
               style={styles.image}
             />
             <Text style={styles.pokeName}>
-              {pokemon.id} - {pokemon.name}
+              {data.id} - {data.name}
             </Text>
           </View>
           <View style={styles.card}>
-            {pokemon.stats.map((statGroup: any) => (
+            {data.stats.map((statGroup: any) => (
               <Text key={statGroup.stat.url}>
                 {statGroup.stat.name} : {statGroup.base_stat}
               </Text>
@@ -99,4 +121,4 @@ const styles = StyleSheet.create({
   },
 });
 
-export default TestPage;
+export default PokeDetailPage;
