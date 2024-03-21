@@ -1,12 +1,21 @@
-import { View, Text, Image, StyleSheet } from "react-native";
-import React, { useState, useEffect } from "react";
+import { View, Text, Image, StyleSheet, Pressable } from "react-native";
+import React, { useState, useEffect, useCallback } from "react";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { pokeDetailApi, Pokemon } from "@/api/pokeapi";
+import AsyncStorage from "@react-native-async-storage/async-storage";
+import { AntDesign } from "@expo/vector-icons";
 
 const TestPage = () => {
   const { id = "" } = useLocalSearchParams<{ id: string }>();
   const [pokemon, setPokemon] = useState<Pokemon>();
+  const [isFavorite, setIsFavorite] = useState<boolean>(false);
   const navigation = useNavigation();
+
+  const toggleFavorite = useCallback(() => {
+    AsyncStorage.setItem(`favoriate-${id}`, isFavorite ? "false" : "true");
+    setIsFavorite((cur) => !cur);
+  }, [isFavorite, id, AsyncStorage]);
+
   useEffect(() => {
     const load = async () => {
       const data = await pokeDetailApi(id);
@@ -17,6 +26,28 @@ const TestPage = () => {
     };
     load();
   }, [id]);
+
+  useEffect(() => {
+    const load = async () => {
+      const storedFavorite = await AsyncStorage.getItem(`favoriate-${id}`);
+      if (storedFavorite === "true") setIsFavorite(true);
+    };
+    load();
+  }, []);
+
+  useEffect(() => {
+    navigation.setOptions({
+      headerRight: () => (
+        <Pressable onPress={toggleFavorite}>
+          <AntDesign
+            name={isFavorite ? "star" : "staro"}
+            size={24}
+            color="black"
+          />
+        </Pressable>
+      ),
+    });
+  }, [isFavorite, toggleFavorite]);
   return (
     <View>
       {pokemon && (
