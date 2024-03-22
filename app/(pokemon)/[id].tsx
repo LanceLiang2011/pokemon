@@ -6,22 +6,31 @@ import {
   Pressable,
   ActivityIndicator,
 } from "react-native";
+import Animated, {
+  FadeIn,
+  FlipInEasyX,
+  useSharedValue,
+  withSpring,
+} from "react-native-reanimated";
 import React, { useState, useEffect, useCallback } from "react";
 import { useLocalSearchParams, useNavigation } from "expo-router";
 import { useQuery } from "@tanstack/react-query";
 import { pokeDetailApi } from "@/api/pokeapi";
-import AsyncStorage from "@react-native-async-storage/async-storage";
+import { storage } from "@/api/mmkv";
 import { AntDesign } from "@expo/vector-icons";
 
 const PokeDetailPage = () => {
   const { id = "" } = useLocalSearchParams<{ id: string }>();
-  const [isFavorite, setIsFavorite] = useState<boolean>(false);
+  const [isFavorite, setIsFavorite] = useState<boolean>(
+    storage.getBoolean(`favoriate-${id}`) || false
+  );
   const navigation = useNavigation();
 
   const toggleFavorite = useCallback(() => {
-    AsyncStorage.setItem(`favoriate-${id}`, isFavorite ? "false" : "true");
+    storage.set(`favoriate-${id}`, !isFavorite);
+    if (isFavorite) storage.delete(`favoriate-${id}`);
     setIsFavorite((cur) => !cur);
-  }, [isFavorite, id, AsyncStorage]);
+  }, [isFavorite, id, storage]);
 
   const { data, isLoading } = useQuery({
     queryKey: ["pokemon", id],
@@ -48,13 +57,16 @@ const PokeDetailPage = () => {
     load();
   }, [id]);
 */
-  useEffect(() => {
+
+  /** old way of getting AsyncStorage
+   useEffect(() => {
     const load = async () => {
       const storedFavorite = await AsyncStorage.getItem(`favoriate-${id}`);
       if (storedFavorite === "true") setIsFavorite(true);
     };
     load();
   }, []);
+ */
 
   useEffect(() => {
     navigation.setOptions({
@@ -69,20 +81,38 @@ const PokeDetailPage = () => {
       ),
     });
   }, [isFavorite, toggleFavorite]);
+
+  const width = useSharedValue(200);
+  const handlePress = () => {
+    width.value = withSpring(width.value + 80);
+  };
   return (
     <View>
       {isLoading && <ActivityIndicator style={{ marginTop: 30 }} />}
       {data && (
         <>
-          <View style={[styles.card, { alignItems: "center" }]}>
-            <Image
-              source={{ uri: data.sprites.front_default }}
-              style={styles.image}
-            />
-            <Text style={styles.pokeName}>
-              {data.id} - {data.name}
-            </Text>
-          </View>
+          <Pressable onPress={handlePress}>
+            <Animated.View
+              style={[
+                styles.card,
+                { alignItems: "center" },
+                { width, alignSelf: "center" },
+              ]}
+              entering={FadeIn.delay(200)}
+            >
+              <Image
+                source={{ uri: data.sprites.front_default }}
+                style={styles.image}
+              />
+              <Animated.Text
+                style={styles.pokeName}
+                entering={FlipInEasyX.delay(300)}
+              >
+                {data.id} - {data.name}
+              </Animated.Text>
+            </Animated.View>
+          </Pressable>
+
           <View style={styles.card}>
             {data.stats.map((statGroup: any) => (
               <Text key={statGroup.stat.url}>
